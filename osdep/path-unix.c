@@ -1,0 +1,139 @@
+/*
+ * This file is part of universalvideoplayer.
+ *
+ * universalvideoplayer is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
+ *
+ * universalvideoplayer is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with universalvideoplayer.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#include <string.h>
+
+#include "misc/bstr.h"
+#include "options/path.h"
+#include "osdep/io.h"
+#include "osdep/threads.h"
+#include "path.h"
+
+#include "config.h"
+
+static mp_once path_init_once = MP_STATIC_ONCE_INITIALIZER;
+
+#define CONF_MAX 512
+static char universalvideoplayer_home[CONF_MAX];
+static char old_home[CONF_MAX];
+static char universalvideoplayer_cache[CONF_MAX];
+static char old_cache[CONF_MAX];
+static char universalvideoplayer_desktop[CONF_MAX];
+static char universalvideoplayer_state[CONF_MAX];
+#define MKPATH(BUF, ...) (snprintf((BUF), CONF_MAX, __VA_ARGS__) >= CONF_MAX)
+
+static void path_init(void)
+{
+    char *home = getenv("HOME");
+    char *xdg_cache = getenv("XDG_CACHE_HOME");
+    char *xdg_config = getenv("XDG_CONFIG_HOME");
+    char *xdg_state = getenv("XDG_STATE_HOME");
+
+    bool err = false;
+    if (xdg_config && xdg_config[0] == '/') {
+        err = err || MKPATH(universalvideoplayer_home, "%s/universalvideoplayer", xdg_config);
+    } else if (home && home[0]) {
+        err = err || MKPATH(universalvideoplayer_home, "%s/.config/universalvideoplayer", home);
+    }
+
+    // Maintain compatibility with old ~/.universalvideoplayer
+    if (home && home[0]) {
+        err = err || MKPATH(old_home, "%s/.universalvideoplayer", home);
+        err = err || MKPATH(old_cache, "%s/.universalvideoplayer/cache", home);
+    }
+
+    if (xdg_cache && xdg_cache[0] == '/') {
+        err = err || MKPATH(universalvideoplayer_cache, "%s/universalvideoplayer", xdg_cache);
+    } else if (home && home[0]) {
+        err = err || MKPATH(universalvideoplayer_cache, "%s/.cache/universalvideoplayer", home);
+    }
+
+    if (xdg_state && xdg_state[0] == '/') {
+        err = err || MKPATH(universalvideoplayer_state, "%s/universalvideoplayer", xdg_state);
+    } else if (home && home[0]) {
+        err = err || MKPATH(universalvideoplayer_state, "%s/.local/state/universalvideoplayer", home);
+    }
+
+    char xdg_user_dirs[CONF_MAX] = {0};
+    if (xdg_config && xdg_config[0] == '/') {
+        err = err || MKPATH(xdg_user_dirs, "%s/user-dirs.dirs", xdg_config);
+    } else if (home && home[0]) {
+        err = err || MKPATH(xdg_user_dirs, "%s/.config/user-dirs.dirs", home);
+    }
+
+    // Attempt to read user-dirs for XDG_DESKTOP_DIR
+    universalvideoplayer_desktop[0] = '\0';
+    if (mp_path_exists(xdg_user_dirs)) {
+        char line[4096];
+        FILE *user_dirs = fopen(xdg_user_dirs, "r");
+        if (!user_dirs)
+            goto skip_user_dirs;
+        while (fgets(line, sizeof(line), user_dirs)) {
+            bstr data = bstr0(line);
+            if (bstr_eatstart0(&data, "XDG_DESKTOP_DIR=")) {
+                bstr value = bstr_strip_linebreaks(data);
+                if (bstr_eatstart0(&value, "\"") && bstr_eatend0(&value, "\"")) {
+                    bool home_prefix = bstr_eatstart0(&value, "$HOME/");
+                    if (home_prefix) {
+                        err = err || MKPATH(universalvideoplayer_desktop, "%s/%.*s", home, BSTR_P(value));
+                    } else {
+                        err = err || MKPATH(universalvideoplayer_desktop, "%.*s", BSTR_P(value));
+                    }
+                }
+                break;
+            }
+        }
+        fclose(user_dirs);
+    }
+
+skip_user_dirs:
+    if (!universalvideoplayer_desktop[0] && home && home[0])
+        err = err || MKPATH(universalvideoplayer_desktop, "%s/%s", home, "Desktop");
+
+    // If the old ~/.universalvideoplayer exists, and the XDG config dir doesn't, use the old
+    // config dir only. Also do not use any other XDG directories.
+    if (mp_path_exists(old_home) && !mp_path_exists(universalvideoplayer_home)) {
+        err = err || MKPATH(universalvideoplayer_home, "%s", old_home);
+        err = err || MKPATH(universalvideoplayer_cache, "%s", old_cache);
+        err = err || MKPATH(universalvideoplayer_state, "%s", old_home);
+        old_home[0] = '\0';
+        old_cache[0] = '\0';
+    }
+
+    if (err) {
+        fprintf(stderr, "Config dir exceeds %d bytes\n", CONF_MAX);
+        abort();
+    }
+}
+
+const char *mp_get_platform_path_unix(void *talloc_ctx, const char *type)
+{
+    mp_exec_once(&path_init_once, path_init);
+    if (strcmp(type, "home") == 0)
+        return universalvideoplayer_home;
+    if (strcmp(type, "old_home") == 0)
+        return old_home;
+    if (strcmp(type, "cache") == 0)
+        return universalvideoplayer_cache;
+    if (strcmp(type, "state") == 0)
+        return universalvideoplayer_state;
+    if (strcmp(type, "global") == 0)
+        return UNIVERSALVIDEOPLAYER_CONFDIR;
+    if (strcmp(type, "desktop") == 0)
+        return universalvideoplayer_desktop;
+    return NULL;
+}
