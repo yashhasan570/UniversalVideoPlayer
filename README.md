@@ -1,3 +1,4 @@
+![universalvideoplayer logo](https://raw.githubusercontent.com/yashhasan570/Universal Video Player.io/master/source/images/universalvideoplayer-logo-128.png)
 
 # universalvideoplayer
 

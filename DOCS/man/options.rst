@@ -8751,7 +8751,7 @@ Miscellaneous
 
     Registers universalvideoplayer as a media player on Windows. This includes adding registry
     entries to associate universalvideoplayer with media files and protocols, as well as enabling
-    autoplay handlers for Blu-ray, DVD, and CD-Audio.
+    autoplay handlers for Blu-ray, DVD, DVD-Audio, and CD-Audio.
 
     Note that the registration is done in-place, so the current universalvideoplayer.exe path will
     be used. If you move universalvideoplayer after registering it, you can re-run this command to
@@ -8764,7 +8764,8 @@ Miscellaneous
 
     The list of the file extensions to register, can be controlled with the
     ``--video-exts``, ``--audio-exts``, ``--image-exts``, ``--playlist-exts``
-    and ``--archive-exts`` options.
+    and ``--archive-exts`` options. Disc images (``.iso``) and the ``.ifo``
+    and ``.bdmv`` files of DVD and Blu-ray folders are registered as well.
 
     By default, universalvideoplayer will be registered for the current user. To register it for
     all users, run universalvideoplayer as an administrator with this option. However, this is
