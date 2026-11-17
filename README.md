@@ -220,7 +220,3 @@ Most activity happens on the IRC channel and the GitHub issue tracker.
 [restore-old-bindings]: https://github.com/yashhasan570/Universal Video Player/blob/master/etc/restore-old-bindings.conf
 [restore-osc-bindings]: https://github.com/yashhasan570/Universal Video Player/blob/master/etc/restore-osc-bindings.conf
 [contribute.md]: https://github.com/yashhasan570/Universal Video Player/blob/master/DOCS/contribute.md
-
-## Contact
-
-Questions, problem reports or feedback? Reach us on Telegram: [@johnconstantine570](https://t.me/johnconstantine570)
